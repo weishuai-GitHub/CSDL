@@ -97,10 +97,9 @@ class MLP(nn.Module):
         return logits
 
 class SENet(nn.Module):
-    def __init__(self,backbone,head:DINOHead,query_embedding:DINOHead,key_embedding:DINOHead,cls_head:MLP,args=None):
+    def __init__(self,backbone,query_embedding:DINOHead,key_embedding:DINOHead,cls_head:MLP,args=None):
         super().__init__()
         self.backbone = backbone
-        self.head = head
         self.query_embedding = query_embedding
         self.key_embedding = key_embedding
         self.cls_head = cls_head
@@ -113,7 +112,7 @@ class SENet(nn.Module):
     
     def forward(self,x,is_train=True):
         x = self.backbone(x)
-        x_proj,_ = self.head(x)
+        # x_proj,_ = self.head(x)
         temp = x.detach()
         query_embedding,_ = self.query_embedding(x)
         key_embedding,_ = self.key_embedding(self.base)
@@ -129,7 +128,7 @@ class SENet(nn.Module):
         if not is_train:
             return logits
         else:
-            return temp,coff,x_proj,logits
+            return temp,coff,logits
 
 class DINO(nn.Module):
     def __init__(self,backbone,head:DINOHead,query_embedding:DINOHead,key_embedding:DINOHead,args=None):

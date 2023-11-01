@@ -107,16 +107,6 @@ def train(student:SENet, train_loader, test_loader, unlabelled_train_loader, arg
                 me_max_loss = - torch.sum(torch.log(avg_probs**(-avg_probs))) + math.log(float(len(avg_probs)))
                 cluster_loss += args.memax_weight * me_max_loss
 
-                # represent learning, unsup
-                contrastive_logits, contrastive_labels = info_nce_logits(features=student_proj)
-                contrastive_loss = torch.nn.CrossEntropyLoss()(contrastive_logits, contrastive_labels)
-
-                # representation learning, sup
-                student_proj = torch.cat([f[mask_lab].unsqueeze(1) for f in student_proj.chunk(2)], dim=1)
-                student_proj = torch.nn.functional.normalize(student_proj, dim=-1)
-                sup_con_labels = class_labels[mask_lab]
-                sup_con_loss = SupConLoss()(student_proj, labels=sup_con_labels)
-
                 # self_express_loss
                 base = student.base
                 coff_X = coff_c.mm(base)
@@ -126,12 +116,9 @@ def train(student:SENet, train_loader, test_loader, unlabelled_train_loader, arg
                 pstr +=f'self_express_loss: {self_express_loss.item():.4f} '
                 pstr +=f'cls_loss: {cls_loss.item():.4f} '
                 pstr +=f'cluster_loss: {cluster_loss.item():.4f} '
-                pstr += f'sup_con_loss: {sup_con_loss.item():.4f} '
-                pstr += f'contrastive_loss: {contrastive_loss.item():.4f} '
 
                 loss = 0
                 loss += (1 - args.sup_weight) * cls_loss + args.sup_weight * cluster_loss
-                loss += (1 - args.sup_weight) * contrastive_loss + args.sup_weight * sup_con_loss
                 loss += self_express_loss
             # Train acc
             loss_record.update(loss.item(), class_labels.size(0))
@@ -360,7 +347,6 @@ if __name__ == "__main__":
     # ----------------------
     # PROJECTION HEAD
     # ----------------------
-    head = DINOHead(in_dim=args.feat_dim, out_dim=args.num_subspaces, nlayers=args.num_mlp_layers)
     query_embedding = DINOHead(in_dim=args.feat_dim, out_dim=args.mlp_out_dim, 
                                nlayers=args.num_mlp_layers,bottleneck_dim=args.bottleneck_dim)
     key_embedding  = DINOHead(in_dim=args.feat_dim, out_dim=args.mlp_out_dim, 
@@ -372,7 +358,7 @@ if __name__ == "__main__":
     sampled_idx = np.random.choice(len(train_dataset), args.mlp_out_dim, replace=False)
     samples=[]
     samples_labels = []
-    model = SENet(backbone,head,query_embedding,key_embedding,cls_head,args)
+    model = SENet(backbone,query_embedding,key_embedding,cls_head,args)
     for idx in sampled_idx:
         sample,samples_label,_ = datasets['test_train'][idx]
         samples_labels.append(samples_label)
